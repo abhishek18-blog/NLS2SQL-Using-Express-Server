@@ -4,40 +4,7 @@ import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { HumanMessage, AIMessage, SystemMessage } from "@langchain/core/messages";
-import { execute } from "./database";
-
-
-export function getSystemInstructions(role: string, database?: string) {
-    const dbName = database || 'sakila';
-    const privacyRule = role.toLowerCase() === "user"
-        ? `PRIVACY RULE: You are answering a standard USER. If they ask for personal details (names, emails, addresses), reply with exactly: "You need to be an admin to access this data." and do NOT output SQL.`
-        : `PRIVACY RULE: The user is an ADMIN. They are authorized to see all personal data.`;
-
-    return `
-CRITICAL INSTRUCTIONS:
-1. You MUST use the 'get_from_db' tool to fetch the exact data BEFORE answering data questions.
-2. NEVER guess, estimate, or hallucinate numbers or data.
-3. If user asks for any data that is not in the database, return "No data found".
-4. NEVER append warning messages. Just give the direct answer.
-5. Once you have fetched data using the 'get_from_db' tool, synthesize a clear, concise answer. Do NOT output the raw SQL query in your final answer. IMPORTANT: If the answer involves a date or time, output it EXACTLY as it appears in the database results (do not reformat it).
-6. If the user's input is a greeting or unrelated to the schema, respond conversationally WITHOUT using the tool.
-7. If the user asks a descriptive/meta question about the database (e.g. 'what is this database?', 'describe the database', 'what tables are there?'), answer directly from the Schema below WITHOUT using the get_from_db tool. Give a short, friendly plain English description — do NOT query INFORMATION_SCHEMA.
-8. UI FORMATTING: Do NOT output the raw data as a markdown table, list, or long text block in your final answer. The user interface automatically displays the raw database rows in a beautiful visual table below your text. Your ONLY job is to provide a brief, human-friendly summary sentence of what the data represents (e.g., "Here is the data you requested." or "There are 5 flights matching your criteria.").
-
-STRICT RULES — FOLLOW EXACTLY FOR SQL GENERATION:
-1. ONLY use table names and column names that are listed in the Schema below. NEVER invent column names.
-2. Date columns in this database are stored as standard MySQL DATETIME (e.g., '2015-06-01 00:00:00'). You can use standard functions like YEAR(col), MONTH(col), or LIKE '2015-07%' directly without STR_TO_DATE.
-3. Do NOT use DATE(), from, log_date, or any column not in the Schema.
-4. Do NOT add a semicolon before LIMIT. By default, ALWAYS use LIMIT 10. If the user explicitly asks for "all", just limit it to 100 entry details maximum.
-5. Do NOT alias columns unless necessary.
-6. ${privacyRule}
-7. ALWAYS use IN instead of = when comparing against a subquery. Example: WHERE id IN (SELECT ...) NOT WHERE id = (SELECT ...)
-8. NEVER use LIMIT inside an IN() subquery — MySQL does not support it. Instead, use a JOIN with a derived table. Example: JOIN (SELECT film_id FROM rental GROUP BY film_id ORDER BY COUNT(*) DESC LIMIT 1) AS top ON film.film_id = top.film_id
-9. NEVER hallucinate columns. Always double-check the schema before using a column name. Do NOT assume common columns like 'store_id' or 'status' exist on every table.
-10. If the question contains a specific value (e.g., "movies with ID 1", "customers from city 2", "films released in 2006", "bookings for date '2015-11-08'"), you MUST use = in your WHERE clause (WHERE id = 1, WHERE city_id = 2, WHERE release_year = 2006, WHERE booking_date = '2015-11-08'). Only use IN when the user explicitly asks for multiple values, or when comparing against a subquery. NEVER use IN() for a single literal value (never write IN(1), always use =1).
-11. CROSS-DB PROTECTION: You are connected to the '${dbName}' database. If the user's question asks about a topic that clearly belongs to a different database (e.g. asking about flights/passengers in the movie database, or asking about movies/rentals in the airport database), do NOT use the get_from_db tool. Answer exactly: "This question does not match the currently selected database (${dbName === 'airportdb' ? 'Airport DB' : 'Sakila DB'}). Please switch databases or ask a relevant question."
-`;
-}
+import { execute, getSchema } from "./database";
 
 // 1. LOCAL AI
 export async function handleLocalAI(
@@ -48,29 +15,6 @@ export async function handleLocalAI(
     addLog?: (msg: string) => void) //Optional parameter specifying the name of the db to target 
 {
 
-
-    //  ROLE-BASED ACCESS CONTROL (Early Exit) ---
-    // If a normal user asks for anything related to personal data, stop immediately.
-    if (role.toLowerCase() === "user") {
-        const qLower = question.toLowerCase();
-        if (
-            qLower.includes("name") || qLower.includes("email") ||
-            qLower.includes("address") || qLower.includes("phone") ||
-            qLower.includes("contact") || qLower.includes("personal") ||
-            qLower.includes("passenger") || qLower.includes("user data")
-        ) {
-            if (addLog) addLog("🛑 Access Denied: User attempted to query personal data.");
-            return {
-                sql_query: null,
-                results: null,
-                answer: "You need to be an admin to access this data."
-            };
-        }
-    }
-
-    // Grab our highly engineered prompt instructions
-    const systemInstructions = getSystemInstructions(role, database);
-
     const llm = new ChatOllama(
         {
             baseUrl: "http://localhost:11434",
@@ -78,11 +22,40 @@ export async function handleLocalAI(
             temperature: 0.1, //for strict accurate output
         }
     );
-    const sqlPrompt = `You are a MySQL query generator. Output ONLY raw SQL.
-         Schema: ${schemaStr}
-         ${systemInstructions}
-         Question: ${question} SQL: 
-        `;
+    const privacyRule = role.toUpperCase() === "USER"
+        ? "DO NOT generate queries for personal details (names, emails, addresses). If asked, return exactly: You need to be an admin to access this data."
+        : "User is ADMIN. You can query any data.";
+
+    const sqlPrompt = `You are a MySQL query generator. Your ONLY job is to write valid MySQL SQL.
+
+
+STRICT RULES — FOLLOW EXACTLY:
+1. Output ONLY the raw SQL query. No explanation, no markdown, no code fences, no comments.
+2. ONLY use table names and column names that are listed in the Schema below. NEVER invent column names.
+3. CROSS-DB PROTECTION: You are connected to the '${database || 'sakila'}' database. If the user's question asks about a topic that clearly belongs to a different database (e.g. asking about flights/passengers in the movie database, or asking about movies/rentals in the airport database), output exactly: CROSS_DB_ERROR
+4. Date columns in this database are stored as standard MySQL DATETIME (e.g., '2015-06-01 00:00:00'). You can use standard functions like YEAR(col), MONTH(col), or LIKE '2015-07%' directly without STR_TO_DATE.
+5. Do NOT use DATE(), from, log_date, or any column not in the Schema.
+6. Do NOT add a semicolon before LIMIT. By default, ALWAYS use LIMIT 10. If the user explicitly asks for more, you may use up to LIMIT 100 maximum.
+7. Do NOT alias columns unless necessary.
+8. If the question is PURELY a greeting (e.g. 'hi', 'hello', 'thanks') with NO database intent, output exactly: NOT_A_QUERY. IMPORTANT: If the user's question contains a greeting AND a data request (e.g., "hi how many customers"), IGNORE the greeting and GENERATE THE SQL.
+9. If the user asks to "show tables", "list tables", "what tables exist", or similar — generate SQL: SHOW TABLES
+10. If the user asks to "show entries", "show data", "show rows" for a table — generate: SELECT * FROM <table_name> LIMIT 10
+11. Only use EXPLAIN, TELL ME ABOUT THE DATABASE, DESCRIBE: for purely abstract questions like 'what is this database?' or 'describe the database' where no data listing is requested. Format: DESCRIBE: <2-3 sentence description>
+12. ${privacyRule}
+13. ALWAYS use IN instead of = when comparing against a subquery. Example: WHERE id IN (SELECT ...) NOT WHERE id = (SELECT ...)
+14. NEVER use LIMIT inside an IN() subquery — MySQL does not support it. Instead, use a JOIN with a derived table. Example: JOIN (SELECT film_id FROM rental GROUP BY film_id ORDER BY COUNT(*) DESC LIMIT 1) AS top ON film.film_id = top.film_id
+15. NEVER hallucinate columns. Always double-check the schema before using a column name. Do NOT assume common columns like 'store_id' or 'status' exist on every table.
+16. If the question contains a specific value (e.g., "movies with ID 1", "customers from city 2", "films released in 2006", "bookings for date '2015-11-08'"), you MUST use = in your WHERE clause (WHERE id = 1, WHERE city_id = 2, WHERE release_year = 2006, WHERE booking_date = '2015-11-08'). Only use IN when the user explicitly asks for multiple values, or when comparing against a subquery. NEVER use IN() for a single literal value (never write IN(1), always use =1).
+
+
+PRIVACY & ACCESS CONTROL:
+The current active user role is: ${role?.toUpperCase() || 'USER'}
+If the user role is "USER", they are strictly PROHIBITED from viewing personal details (names, emails, addresses). Reply: "You need to be an admin to access this data."
+If the user role is "ADMIN", they are fully authorized to see all personal details.
+
+Schema: ${schemaStr}
+
+Question: ${question} SQL:`;
 
 
     if (addLog) addLog("Asking local AI for SQL..");
@@ -117,6 +90,46 @@ export async function handleLocalAI(
     // Prepares a mutable variable to temporarily store db query records
     let results: any = null;
 
+    // =====================================================================
+    // HANDLE SPECIAL AI RESPONSES (NON-SQL)
+    // We intercept these specific outputs so they don't cause SQL syntax errors
+    // =====================================================================
+
+    // 1. Privacy Restriction Block
+    if (rawSql.toLowerCase().includes("you need to be an admin")) {
+        return {
+            sql_query: null,
+            results: null,
+            answer: "You need to be an admin to access this data."
+        };
+    }
+
+    // 2. Greeting / Conversational Block
+    if (rawSql === "NOT_A_QUERY") {
+        return {
+            sql_query: null,
+            results: null,
+            answer: "Hello! I'm your SQL assistant. Ask me anything about your database."
+        };
+    }
+
+    // 3. Database Context Error
+    if (rawSql === "CROSS_DB_ERROR") {
+        return {
+            sql_query: null,
+            results: null,
+            answer: `This question does not match the currently selected database (${database === 'airportdb' ? 'Airport DB' : 'Sakila DB'}). Please switch databases or ask a relevant question.`
+        };
+    }
+
+    // 4. Abstract Database Description
+    if (rawSql.startsWith("DESCRIBE:")) {
+        return {
+            sql_query: null,
+            results: null,
+            answer: rawSql.replace("DESCRIBE:", "").trim()
+        };
+    }
 
     try {
         // Runs the cleaned SQL query against the specified database
@@ -130,9 +143,9 @@ export async function handleLocalAI(
     }
 
     //creates a second prompt instructing the AI to read the query results and summarize them naturally
-    // \`.slice(0,5)\` passes only the first 5 records to save context window space
+    // `.slice(0,5)` passes only the first 5 records to save context window space
     const summaryPrompt = `You are a helpful data analyst. The user asked: "${question}".The SQL returned: ${JSON.stringify(results?.slice(0, 5))}.
-        Give a short plain english summary. DO NOT output markdown tables, lists, or raw row data. Just a friendly 1-2 sentence summary, because the UI will display the actual table data separately.`;
+        Give a short plain english answer.`;
 
 
     // Invokes the AI model a second time to process the summary prompt and return the final response
@@ -149,6 +162,8 @@ export async function handleLocalAI(
     };
 }
 
+
+
 // ============================================== //
 // 2. CLOUD AI (GROQ) WITH REACT AGENT
 // ============================================== //
@@ -159,25 +174,6 @@ export async function handleOnlineAI(
     database?: string,
     addLog?: (msg: string) => void
 ) {
-
-    //  ROLE-BASED ACCESS CONTROL (Early Exit) ---
-    // If a normal user asks for anything related to personal data, stop immediately.
-    if (role.toLowerCase() === "user") {
-        const qLower = question.toLowerCase();
-        if (
-            qLower.includes("name") || qLower.includes("email") ||
-            qLower.includes("address") || qLower.includes("phone") ||
-            qLower.includes("contact") || qLower.includes("personal") ||
-            qLower.includes("passenger") || qLower.includes("user data")
-        ) {
-            if (addLog) addLog("🛑 Access Denied: User attempted to query personal data.");
-            return { sql_query: null, results: null, answer: "You need to be an admin to access this data." };
-        }
-    }
-
-    // Grab our highly engineered prompt instructions
-    const systemInstructions = getSystemInstructions(role, database);
-
     const llm = new ChatGroq(
         {
             model: "openai/gpt-oss-120b",
@@ -185,6 +181,10 @@ export async function handleOnlineAI(
             apiKey: process.env.GROQ_API_KEY
         }
     );
+
+    const privacyRule = role.toUpperCase() === "USER"
+        ? "DO NOT generate queries for personal details (names, emails, addresses). If asked, return exactly: You need to be an admin to access this data."
+        : "User is ADMIN. You can query any data.";
 
     // 1. GIve the AI a tool it can use to run SQL
     const getFromDB = tool(
@@ -223,13 +223,41 @@ export async function handleOnlineAI(
 
     if (addLog) addLog("ASKING CLOUD AI WITH REACT AGENT...");
 
+    const systemPrompt = `CRITICAL INSTRUCTIONS:
+1. You MUST use the 'get_from_db' tool to fetch the exact data BEFORE answering data questions.
+2. NEVER guess, estimate, or hallucinate numbers or data.
+3. If user asks for any data that is not in the database, return "No data found".
+4. NEVER append warning messages. Just give the direct answer.
+5. Once you have fetched data using the 'get_from_db' tool, synthesize a clear, concise answer. Do NOT output the raw SQL query in your final answer. IMPORTANT: If the answer involves a date or time, output it EXACTLY as it appears in the database results (do not reformat it).
+6. If the user's input is a greeting or unrelated to the schema, respond conversationally WITHOUT using the tool.
+7. If the user asks a descriptive/meta question about the database (e.g. 'what is this database?', 'describe the database', 'what tables are there?'), answer directly from the Schema below WITHOUT using the get_from_db tool. Give a short, friendly plain English description — do NOT query INFORMATION_SCHEMA.
+
+
+STRICT RULES — FOLLOW EXACTLY FOR SQL GENERATION:
+1. ONLY use table names and column names that are listed in the Schema below. NEVER invent column names.
+2. Date columns in this database are stored as standard MySQL DATETIME (e.g., '2015-06-01 00:00:00'). You can use standard functions like YEAR(col), MONTH(col), or LIKE '2015-07%' directly without STR_TO_DATE.
+3. Do NOT use DATE(), from, log_date, or any column not in the Schema.
+4. Do NOT add a semicolon before LIMIT. By default, ALWAYS use LIMIT 10. If the user explicitly asks for more, you may use up to LIMIT 100 maximum.
+5. Do NOT alias columns unless necessary.
+6. ${privacyRule}
+7. ALWAYS use IN instead of = when comparing against a subquery. Example: WHERE id IN (SELECT ...) NOT WHERE id = (SELECT ...)
+8. NEVER use LIMIT inside an IN() subquery — MySQL does not support it. Instead, use a JOIN with a derived table. Example: JOIN (SELECT film_id FROM rental GROUP BY film_id ORDER BY COUNT(*) DESC LIMIT 1) AS top ON film.film_id = top.film_id
+9. NEVER hallucinate columns. Always double-check the schema before using a column name. Do NOT assume common columns like 'store_id' or 'status' exist on every table.
+10. If the question contains a specific value (e.g., "movies with ID 1", "customers from city 2", "films released in 2006", "bookings for date '2015-11-08'"), you MUST use = in your WHERE clause (WHERE id = 1, WHERE city_id = 2, WHERE release_year = 2006, WHERE booking_date = '2015-11-08'). Only use IN when the user explicitly asks for multiple values, or when comparing against a subquery. NEVER use IN() for a single literal value (never write IN(1), always use =1).
+11. CROSS-DB PROTECTION: You are connected to the '${database || 'sakila'}' database. If the user's question asks about a topic that clearly belongs to a different database (e.g. asking about flights/passengers in the movie database, or asking about movies/rentals in the airport database), do NOT use the get_from_db tool. Answer exactly: "This question does not match the currently selected database (${database === 'airportdb' ? 'Airport DB' : 'Sakila DB'}). Please switch databases or ask a relevant question."
+
+
+PRIVACY & ACCESS CONTROL:
+The current active user role is: ${role?.toUpperCase() || 'USER'}
+If the user role is "USER", they are strictly PROHIBITED from viewing personal details (names, emails, addresses). Reply: "You need to be an admin to access this data."
+If the user role is "ADMIN", they are fully authorized to see all personal details.
+
+Schema: ${schemaStr}`;
+
     // 3. Run the agent
     const response = await agent.invoke({
         messages: [
-            new SystemMessage(`You are a MySQL assistant .ONLY use the schema provided. 
-                ${systemInstructions}
-                Schema: ${schemaStr}`),
-
+            new SystemMessage(systemPrompt),
             new HumanMessage(question),
         ],
     },

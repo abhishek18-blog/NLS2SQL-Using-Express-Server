@@ -1,0 +1,75 @@
+====================================================================
+AI.TS - COMPLETE CODE BREAKDOWN
+====================================================================
+This file handles all communication with the Large Language Models. 
+It contains two separate logic flows: one for Local AI (Ollama) and 
+one for Cloud AI (Groq + LangGraph Agents).
+
+--------------------------------------------------------------------
+1. FUNCTIONS & METHODS USED
+--------------------------------------------------------------------
+- handleLocalAI() & handleOnlineAI()
+  What it is: Exported functions you created.
+  Why: To encapsulate and separate the logic for running local models vs cloud models.
+
+- tool()
+  What it is: A LangChain function.
+  Why: Used to turn your regular JavaScript function (querying the DB) into a "Tool" that the LangGraph Agent understands and can call on its own.
+
+- createReactAgent()
+  What it is: A LangGraph function.
+  Why: It creates an intelligent agent that uses a "Reasoning + Acting" loop to figure out how to use the tools provided to answer a user's question.
+
+- execute() & getSchema()
+  What it is: Your own functions imported from database.ts.
+  Why: The AI file needs to actually execute SQL and fetch the schema from the database file.
+
+- llm.invoke() / agent.invoke()
+  What it is: The trigger mechanism for the AI models.
+  Why: You use this to actually send the prompt to Ollama or Groq and tell them to start thinking and generating a response.
+
+- trim()
+  What it is: A JavaScript string method.
+  Why: Used on the AI's response to chop off any accidental empty spaces or newlines at the beginning or end of its generated text.
+
+- replace()
+  What it is: A JavaScript string method.
+  Why: Used with a Regular Expression (Regex) to strip off trailing semicolons `;` from the AI's generated SQL so it doesn't crash the database.
+
+- JSON.stringify() / JSON.parse()
+  What it is: Built in JSON methods.
+  Why: Stringify converts the raw database arrays into text for the AI. Parse converts the text response from the tool back into a JavaScript array.
+
+- Array.isArray()
+  What it is: A built-in array checker method.
+  Why: Used to verify that the parsed data from the agent tool is genuinely an array before setting the `results` variable.
+
+- forEach()
+  What it is: Array loop method.
+  Why: Used to loop through the agent's long history of "messages" (its thought process) to extract the specific SQL query and data results.
+
+--------------------------------------------------------------------
+2. VARIABLES
+--------------------------------------------------------------------
+- question, role, schemaStr, database: Inputs passed from server.ts containing the context the AI needs.
+- llm: Stores the initialized instance of either ChatOllama or ChatGroq.
+- sqlPrompt, summaryPrompt: Giant strings containing instructions (system prompts) telling the AI exactly how to behave.
+- sqlResponse, summaryResponse: Variables catching the raw response object sent back by the Local AI.
+- rawSql: Stores the cleaned up, perfectly formatted SQL string.
+- results: Stores the actual data records retrieved from MySQL.
+- getFromDB: The actual "Tool" object created by LangChain that wraps your `execute` database function.
+- agent: The initialized React Agent brain.
+- response: Stores the massive array of thoughts/actions the agent took.
+- isTooCall / isTooResponse: Boolean (True/False) flags used while looping through the agent's messages to isolate specific steps.
+- parsedData: The raw text response from the tool turned back into a JSON array.
+
+--------------------------------------------------------------------
+3. KEYWORDS
+--------------------------------------------------------------------
+- import: Pulls in the specific LangChain and Zod modules required.
+- export: Makes your handleLocalAI and handleOnlineAI functions accessible.
+- async / await: Used heavily because AI text generation takes several seconds. The code must pause and await the AI's response.
+- const / let: 'let' is used for variables like `results` and `rawSql` because they get updated and mutated during execution.
+- try / catch: Used to catch situations where the generated SQL is bad and crashes the database execution.
+- instanceof: JavaScript keyword used to check if an object belongs to a certain class (e.g., checking if a message is an `AIMessage`).
+- typeof: Used in the JSON replacer (`typeof value === 'bigint'`) to specifically catch large number types and convert them so they don't crash the app.

@@ -1,0 +1,75 @@
+====================================================================
+SERVER.TS - COMPLETE CODE BREAKDOWN
+====================================================================
+This file is the main entry point for your Express server. It sets up 
+the API routes and handles communication between the Frontend UI and 
+the AI/Database logic.
+
+--------------------------------------------------------------------
+1. FUNCTIONS & METHODS USED
+--------------------------------------------------------------------
+- express()
+  What it is: Initializes the Express application.
+  Why: Needed to create the server instance that will listen for HTTP requests.
+
+- dotenv.config()
+  What it is: A method from the 'dotenv' library.
+  Why: It reads your `.env` file and loads those secret variables (like PORT or API keys) into Node.js so you can access them via `process.env`.
+
+- app.use()
+  What it is: Express method to register middleware.
+  Why: Middleware runs on every incoming request before it hits your specific routes to modify or check the request.
+
+- cors()
+  What it is: Cross-Origin Resource Sharing middleware.
+  Why: A security feature. It prevents browsers from blocking the connection when your Vite frontend (localhost:5173) tries to talk to your Express backend (localhost:3000).
+
+- express.json()
+  What it is: Built-in body parser middleware.
+  Why: It intercepts incoming HTTP requests that contain JSON data (from the frontend) and converts it into a readable JavaScript object (`req.body`).
+
+- app.get() / app.post()
+  What it is: Express HTTP routing methods.
+  Why: `app.get` handles reading/fetching data. `app.post` handles receiving data payloads (like the user's question form submission) to process.
+
+- res.json()
+  What it is: Express response method.
+  Why: Converts your backend JavaScript objects/arrays back into JSON format and sends them securely back to the frontend.
+
+- res.status()
+  What it is: Sets the HTTP status code (e.g., 500 for Internal Server Error).
+  Why: Tells the frontend instantly if the request was successful or if the server crashed, so the UI can show an error popup.
+
+- app.listen()
+  What it is: Starts the server.
+  Why: Tells your Node.js application to continuously stay awake and listen for web traffic on the specified PORT.
+
+- push() (e.g., serverLogs.push(msg))
+  What it is: A built-in JavaScript Array method.
+  Why: Appends a new item to the very end of an array list.
+
+--------------------------------------------------------------------
+2. VARIABLES
+--------------------------------------------------------------------
+- app: Stores the initialized Express server instance.
+- PORT: Stores the port number the server will run on (e.g., 3000). Uses process.env.PORT as a fallback if defined.
+- req: Short for "request". The object containing all data sent FROM the frontend TO the backend.
+- res: Short for "response". The object used to send data FROM the backend back TO the frontend.
+- question, role, provider, database: Destructured variables extracted from `req.body` containing the specific form inputs the user typed in the UI.
+- serverLogs: An array of strings used to collect real-time updates of what the backend is doing (e.g., "Connecting to DB...").
+- addLog: A custom helper function. When called, it takes a text message and pushes it into the `serverLogs` array.
+- schemaStr: Holds the giant string representation of the database tables/columns so the AI knows what it's looking at.
+- result: A temporary variable that holds the final output (SQL query, answer, data) from either the Local or Online AI.
+- error: Holds the crash data if the `try` block fails, allowing us to read the `error.message`.
+
+--------------------------------------------------------------------
+3. KEYWORDS
+--------------------------------------------------------------------
+- import: Pulls in code from external libraries (like express) or other files in your project (like ai.ts).
+- async: Tells JavaScript this function contains network/database operations that take time.
+- await: Tells the code to pause on this exact line until the asynchronous operation (like fetching the schema) finishes before moving to the next line.
+- try / catch: Error handling. Tries to run the code in the 'try' block. If it crashes, immediately jumps to the 'catch' block to prevent the server from dying completely.
+- const: Declares a variable that cannot be reassigned (Constant).
+- let: Declares a variable that CAN be reassigned (we use this for `result` because we don't know if it will hold the Local AI output or Cloud AI output until the `if` statement runs).
+- if / else: Conditional logic (Our "Traffic Cop"). If provider is 'local', route to Ollama. Else, route to Groq.
+- ... (Spread Operator): Used in `...result`. It takes all the properties inside the `result` object (like sql_query, answer) and unpacks them into the new response object alongside `logs`.

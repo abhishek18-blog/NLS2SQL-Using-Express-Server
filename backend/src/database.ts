@@ -131,8 +131,12 @@ export async function getSchema(dbName?: string, addLog?: (msg: string) => void)
         const [tables]: any = await connection.query(
             "SHOW TABLES;"
         )
-        const actualDbName = dbUrl.split("/").pop()?.split("?")[0];
-
+        /*
+                const actualDbName = dbUrl.split("/").pop()?.split("?")[0];
+                if (addLog) {
+                    addLog(`Current Database Schema: ${actualDbName}`);
+                }
+        */
         let schemaStr = "";
 
         // 2. Loop through each table to grab its schema
