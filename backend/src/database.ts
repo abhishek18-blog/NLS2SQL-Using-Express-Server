@@ -155,7 +155,6 @@ export async function getSchema(dbName?: string, addLog?: (msg: string) => void)
                 return col.Field;
             }).join(",");
 
-
             schemaStr = schemaStr + `Table:${tableName} (${columnDefs})\n`;
 
         }
