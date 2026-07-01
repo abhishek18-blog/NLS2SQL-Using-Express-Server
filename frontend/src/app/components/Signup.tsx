@@ -2,17 +2,40 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Database, User, Mail, Lock, ArrowRight } from 'lucide-react';
 
+import { toast } from 'sonner';
+
 export function Signup() {
   const navigate = useNavigate();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  const handleSubmit = (e: React.FormEvent, isAdmin: boolean = false) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Mock signup success
-    localStorage.setItem('user-role', isAdmin ? 'Admin' : 'User');
-    navigate('/');
+    
+    try {
+      const res = await fetch('http://localhost:3000/api/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        toast.error(data.error || 'Signup failed');
+        return;
+      }
+
+      // Save the JWT token and role from the backend response
+      localStorage.setItem('auth-token', data.token);
+      localStorage.setItem('user-role', data.role === 'admin' ? 'Admin' : 'User');
+
+      toast.success('Account created successfully!');
+      navigate('/');
+    } catch (err) {
+      toast.error('Could not connect to server');
+    }
   };
 
   return (
@@ -27,7 +50,7 @@ export function Signup() {
         </div>
 
         <div className="bg-white dark:bg-zinc-900/50 backdrop-blur-xl border border-slate-200 dark:border-zinc-800/80 rounded-3xl p-8 shadow-xl shadow-slate-200/50 dark:shadow-2xl">
-          <form onSubmit={(e) => handleSubmit(e, false)} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-zinc-300 mb-2">Full Name</label>
               <div className="relative">
@@ -73,19 +96,12 @@ export function Signup() {
               </div>
             </div>
 
-            <div className="flex gap-3 mt-6">
+            <div className="flex mt-6">
               <button
                 type="submit"
-                className="flex-1 bg-white dark:bg-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-700 text-slate-700 dark:text-white rounded-xl py-3 px-4 text-sm font-medium flex items-center justify-center gap-2 transition-all border border-slate-200 dark:border-zinc-700"
+                className="w-full bg-purple-500 hover:bg-purple-600 text-white rounded-xl py-3 px-4 text-sm font-medium flex items-center justify-center gap-2 transition-all shadow-lg shadow-purple-500/20"
               >
                 Sign Up
-              </button>
-              <button
-                type="button"
-                onClick={(e) => handleSubmit(e, true)}
-                className="flex-1 bg-purple-500 hover:bg-slate-900 text-white rounded-xl py-3 px-4 text-sm font-medium flex items-center justify-center gap-2 transition-all shadow-lg shadow-purple-500/20"
-              >
-                Sign Up as Admin
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>

@@ -87,15 +87,18 @@ export function MainApp() {
       }
     }, 5000);
 
+    // Get the JWT token that was saved to localStorage at login
+    const token = localStorage.getItem('auth-token');
+
     try {
       const response = await fetch('http://localhost:3000/api/query', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` // Send token to backend
         },
         body: JSON.stringify({
           question: query,
-          role: userRole.toLowerCase(),
           provider,
           database
         }),

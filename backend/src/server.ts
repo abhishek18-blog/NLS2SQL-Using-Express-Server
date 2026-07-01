@@ -1,68 +1,102 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { testConnection, getSchema } from './database'
+import { testConnection, getSchema } from './database';
 import { handleLocalAI, handleOnlineAI } from './ai';
 
-// load the envt var. from .env
+// NEW: Import auth tools from our authentication folder
+// LoginHandler   → handles the POST /api/login route
+// SignupHandler  → handles the POST /api/signup route
+// authMiddleware → a "gatekeeper" that checks JWT before letting requests through
+// AuthRequest    → Express Request extended with a `user` field (email + role)
+import { LoginHandler, SignupHandler, authMiddleware, AuthRequest } from './authentication/auth';
+
+// NEW: Import MongoDB connector so we can connect on startup
+import { connectMongo } from './authentication/mongo';
+
+// Load .env variables into process.env
 dotenv.config();
 
-// initialise the express app.
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-//cors: middleware tht allows our frontend VIITE to make request to this backend without security erors
+// Allow frontend (Vite) to talk to this backend without CORS errors
 app.use(cors());
 
-//express.json(): this is middleware that allows us to parse the incoming json request fron frpntend
+// Allow Express to read JSON bodies from incoming requests
 app.use(express.json());
 
-//--ROUTES--
-// 1. Th[e local AI check router
+// NEW: Connect to MongoDB once when the server starts
+// The connection is shared and reused for every request after this
+connectMongo();
+
+
+// ════════════════════════════════════
+//               ROUTES
+// ════════════════════════════════════
+
+// ROUTE 1: Health check — is local Ollama AI running?
+// Public route — no login needed
 app.get('/api/check-local-ai', async (req, res) => {
-    //migrate ollama check logic here
-    res.json(
-        {//this is to check if our ollam local ai is running in bg
-            success: true,
-            message: "Ollama is runing on port http://localhost:11434"
-        }
-    )
+    res.json({
+        success: true,
+        message: "Ollama is running on http://localhost:11434"
+    });
 });
 
-// 2. The main Text-to-SQL endpoint
-app.post('/api/query', async (req, res) => {
-    try {
-        // 1. Grab the data the frontend sent us
-        const { question, role, provider, database } = req.body;
 
-        // 2. Create an array to catch all our real-time logs for the UI
+// ROUTE 2: NEW — Login endpoint
+// Public route — anyone can hit this to get a token
+// Flow: frontend sends { email, password } → we check MongoDB → return { token, role }
+app.post('/api/login', LoginHandler);
+
+// ROUTE 2.1: NEW — Signup endpoint
+// Public route — register a new user in MongoDB
+app.post('/api/signup', SignupHandler);
+
+
+// ROUTE 3: Protected Text-to-SQL endpoint
+// authMiddleware runs FIRST before the handler below
+// If the JWT token is missing or invalid → request is BLOCKED here with 401
+// If token is valid → req.user is populated and we move into the handler
+app.post('/api/query', authMiddleware, async (req: AuthRequest, res) => {
+    try {
+        // Extract what the frontend sent us
+        const { question, provider, database } = req.body;
+
+        // IMPORTANT: role comes from the verified JWT token (req.user)
+        // NOT from req.body — frontend can no longer fake being an admin
+        const role = req.user!.role;
+
+        // A live log array — collects messages to show the user in real-time
         const serverLogs: string[] = [];
         const addLog = (msg: string) => serverLogs.push(msg);
 
-        // 3. Wake up the DB and get the schema map so the AI knows what tables exist
+        // Wake up the database and grab its schema (table/column map for the AI)
         await testConnection(database, addLog);
         const schemaStr = await getSchema(database, addLog);
 
         let result;
 
-        // 4. Traffic Cop: Send to Local or Cloud based on what the user clicked in the UI
+        // Strategy Pattern: pick local or cloud AI based on what the user selected
         if (provider === "local") {
             result = await handleLocalAI(question, role, schemaStr, database, addLog);
         } else {
             result = await handleOnlineAI(question, role, schemaStr, database, addLog);
         }
 
-        // 5. Send the AI's answer, the SQL, the data, and the logs back to the frontend!
+        // Send the AI answer, SQL query, data rows, and logs back to the frontend
         res.json({
             ...result,
             logs: serverLogs,
         });
 
     } catch (error: any) {
-        console.error("❌ Error processing query:", error);
+        console.error("Error processing query:", error);
         res.status(500).json({ detail: error.message });
     }
 });
+
 
 // Start the server
 app.listen(PORT, () => {

@@ -96,7 +96,7 @@ export function ConverterPanel({ onConvert, onCancel, currentQuery, currentSql, 
 
         {/* Input Area Container */}
         <div className="w-full relative shadow-xl shadow-slate-200/50 dark:shadow-[0_8px_30px_rgb(0,0,0,0.4)] rounded-2xl bg-white dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800/80 backdrop-blur-md mb-12 transition-all duration-300 focus-within:border-slate-900 dark:border-indigo-500/50 focus-within:shadow-[0_0_20px_rgba(0,0,0,0.05)] ring-1 ring-white/5">
-          
+
           <form onSubmit={handleSubmit} className="p-1 flex flex-col">
             <textarea
               id="query"
@@ -160,80 +160,80 @@ export function ConverterPanel({ onConvert, onCancel, currentQuery, currentSql, 
 
                 {/* AI Provider Dropdown */}
                 <div className="relative" ref={menuRef}>
-                <button
-                  type="button"
-                  onClick={() => setProviderMenuOpen(!providerMenuOpen)}
-                  disabled={isLoading}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-950/50 border border-slate-200 dark:border-zinc-800 hover:border-zinc-400 dark:border-zinc-700 hover:bg-slate-200 dark:bg-zinc-800/50 transition-all text-sm font-medium text-slate-700 dark:text-zinc-300 disabled:opacity-50"
-                >
-                  {provider === 'online' ? (
-                    <Globe className="w-4 h-4 text-slate-900 dark:text-indigo-400" />
-                  ) : (
-                    <Cpu className="w-4 h-4 text-green-400" />
-                  )}
-                  {provider === 'online' ? 'Online AI' : 'Local AI'}
-                  <ChevronDown className={`w-3 h-3 text-zinc-500 transition-transform ${providerMenuOpen ? 'rotate-180' : ''}`} />
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => setProviderMenuOpen(!providerMenuOpen)}
+                    disabled={isLoading}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-950/50 border border-slate-200 dark:border-zinc-800 hover:border-zinc-400 dark:border-zinc-700 hover:bg-slate-200 dark:bg-zinc-800/50 transition-all text-sm font-medium text-slate-700 dark:text-zinc-300 disabled:opacity-50"
+                  >
+                    {provider === 'online' ? (
+                      <Globe className="w-4 h-4 text-slate-900 dark:text-indigo-400" />
+                    ) : (
+                      <Cpu className="w-4 h-4 text-green-400" />
+                    )}
+                    {provider === 'online' ? 'Online AI' : 'Local AI'}
+                    <ChevronDown className={`w-3 h-3 text-zinc-500 transition-transform ${providerMenuOpen ? 'rotate-180' : ''}`} />
+                  </button>
 
-                <AnimatePresence>
-                  {providerMenuOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute bottom-full left-0 mb-2 w-48 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xl overflow-hidden p-1 z-50 origin-bottom-left"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => { setProvider('online'); setProviderMenuOpen(false); }}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-200 dark:bg-zinc-800/60 transition-colors text-left group"
+                  <AnimatePresence>
+                    {providerMenuOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute bottom-full left-0 mb-2 w-48 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xl overflow-hidden p-1 z-50 origin-bottom-left"
                       >
-                        <div className="p-1.5 bg-slate-200/30 dark:bg-indigo-500/10 text-slate-900 dark:text-indigo-400 rounded-md group-hover:bg-slate-200 dark:bg-indigo-500/20">
-                          <Globe className="w-4 h-4" />
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium text-slate-800 dark:text-zinc-200">Online AI</span>
-                          <span className="text-[10px] text-zinc-500">Fast & precise (Cloud)</span>
-                        </div>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={async () => { 
-                          setProviderMenuOpen(false); 
-                          setIsCheckingLocal(true);
-                          try {
-                            const res = await fetch("http://localhost:3000/api/check-local-ai");
-                            const data = await res.json();
-                            if (data.success) {
-                              setProvider('local');
-                              toast.success("Local AI connection successful!", { description: data.message });
-                            } else {
+                        <button
+                          type="button"
+                          onClick={() => { setProvider('online'); setProviderMenuOpen(false); }}
+                          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-200 dark:bg-zinc-800/60 transition-colors text-left group"
+                        >
+                          <div className="p-1.5 bg-slate-200/30 dark:bg-indigo-500/10 text-slate-900 dark:text-indigo-400 rounded-md group-hover:bg-slate-200 dark:bg-indigo-500/20">
+                            <Globe className="w-4 h-4" />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium text-slate-800 dark:text-zinc-200">Online AI</span>
+                            <span className="text-[10px] text-zinc-500">Fast & precise (Cloud)</span>
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            setProviderMenuOpen(false);
+                            setIsCheckingLocal(true);
+                            try {
+                              const res = await fetch("http://localhost:3000/api/check-local-ai");
+                              const data = await res.json();
+                              if (data.success) {
+                                setProvider('local');
+                                toast.success("Local AI connection successful!", { description: data.message });
+                              } else {
+                                setProvider('online');
+                                toast.error("Local AI connection failed or could not exist", { description: data.message });
+                              }
+                            } catch (e) {
                               setProvider('online');
-                              toast.error("Local AI connection failed or could not exist", { description: data.message });
+                              toast.error("Local AI connection failed or could not exist");
+                            } finally {
+                              setIsCheckingLocal(false);
                             }
-                          } catch (e) {
-                            setProvider('online');
-                            toast.error("Local AI connection failed or could not exist");
-                          } finally {
-                            setIsCheckingLocal(false);
-                          }
-                        }}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-200 dark:bg-zinc-800/60 transition-colors text-left group mt-1"
-                        disabled={isCheckingLocal}
-                      >
-                        <div className="p-1.5 bg-green-500/10 text-green-400 rounded-md group-hover:bg-green-500/20">
-                          <Cpu className="w-4 h-4" />
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium text-slate-800 dark:text-zinc-200">Local AI {isCheckingLocal && '(Scanning...)'}</span>
-                          <span className="text-[10px] text-zinc-500">Private & offline (Slow)</span>
-                        </div>
-                      </button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+                          }}
+                          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-200 dark:bg-zinc-800/60 transition-colors text-left group mt-1"
+                          disabled={isCheckingLocal}
+                        >
+                          <div className="p-1.5 bg-green-500/10 text-green-400 rounded-md group-hover:bg-green-500/20">
+                            <Cpu className="w-4 h-4" />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium text-slate-800 dark:text-zinc-200">Local AI {isCheckingLocal && '(Scanning...)'}</span>
+                            <span className="text-[10px] text-zinc-500">Private & offline (Slow)</span>
+                          </div>
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
 
               </div>
 
@@ -269,7 +269,7 @@ export function ConverterPanel({ onConvert, onCancel, currentQuery, currentSql, 
 
         {/* Generated Output Area */}
         {(currentSql || aiResponse || isLoading) && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="flex-1 flex flex-col lg:flex-row gap-6 relative"
@@ -346,87 +346,87 @@ export function ConverterPanel({ onConvert, onCancel, currentQuery, currentSql, 
 
             {(currentSql && userRole.toLowerCase() === 'admin') && (
               <div className="flex-1 lg:max-w-md xl:max-w-lg flex flex-col rounded-2xl border border-slate-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950/80 backdrop-blur-md overflow-hidden shadow-xl shadow-slate-200/50 dark:shadow-2xl h-fit ring-1 ring-white/5">
-              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/40">
-                <div className="flex items-center gap-3">
-                  <div className="p-1.5 bg-slate-200 dark:bg-zinc-800 rounded-md">
-                    <Terminal className="w-4 h-4 text-slate-700 dark:text-zinc-300" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-semibold text-slate-900 dark:text-zinc-100">Query Used</h3>
-                  </div>
-                </div>
-                <button
-                  onClick={handleCopy}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 rounded-lg hover:bg-slate-200 dark:bg-zinc-800 hover:text-black dark:text-white transition-all text-xs font-medium focus:ring-2 focus:ring-slate-900 dark:ring-indigo-500/30"
-                >
-                  {copied ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-emerald-400" />
-                      Copied!
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5" />
-                      Copy
-                    </>
-                  )}
-                </button>
-              </div>
-
-              {/* Prompt Info */}
-              <div className="px-6 py-3 border-b border-slate-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/20 text-sm">
-                <div className="flex flex-col gap-1.5">
-                  <span className="text-zinc-500 flex items-center gap-1.5 text-xs uppercase tracking-wider font-semibold">
-                    <Code2 className="w-3.5 h-3.5" />
-                    Prompt
-                  </span>
-                  <span className="text-indigo-600 dark:text-indigo-300 font-medium italic line-clamp-2" title={queryUsedForOutput}>
-                    "{queryUsedForOutput}"
-                  </span>
-                </div>
-              </div>
-
-              {/* Read-only Code Area */}
-              <div className="flex-1 p-6 overflow-auto bg-slate-900 dark:bg-[#0d0d0f] relative min-h-[200px]">
-                <pre className="font-mono text-[13px] leading-relaxed text-slate-300 dark:text-zinc-300">
-                  <code className="text-cyan-300 dark:text-cyan-400">{currentSql}</code>
-                </pre>
-              </div>
-
-              {/* Footer Warning */}
-              <div className="px-6 py-4 bg-white dark:bg-zinc-900/60 border-t border-slate-200 dark:border-zinc-800/60 flex items-start gap-3">
-                <div className="p-1 rounded bg-amber-500/10 mt-0.5">
-                  <Database className="w-3.5 h-3.5 text-amber-500" />
-                </div>
-                <p className="text-xs text-amber-500/80 leading-relaxed">
-                  <span className="font-semibold text-amber-500">Read-Only View:</span> Review this generated query to ensure accuracy before running it.
-                </p>
-              </div>
-              {/* Server Logs Panel */}
-              {serverLogs && serverLogs.length > 0 && (
-                <div className="mt-6 flex flex-col rounded-2xl border border-slate-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950/80 backdrop-blur-md overflow-hidden shadow-xl shadow-slate-200/50 dark:shadow-2xl h-fit ring-1 ring-white/5">
-                  <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/40">
-                    <div className="flex items-center gap-3">
-                      <div className="p-1.5 bg-slate-200 dark:bg-zinc-800 rounded-md">
-                        <Terminal className="w-4 h-4 text-emerald-400" />
-                      </div>
-                      <h3 className="text-sm font-semibold text-slate-900 dark:text-zinc-100">Server Execution Logs</h3>
+                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/40">
+                  <div className="flex items-center gap-3">
+                    <div className="p-1.5 bg-slate-200 dark:bg-zinc-800 rounded-md">
+                      <Terminal className="w-4 h-4 text-slate-700 dark:text-zinc-300" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-slate-900 dark:text-zinc-100">Query Used</h3>
                     </div>
                   </div>
-                  <div className="p-4 overflow-auto bg-slate-900 dark:bg-[#0d0d0f] relative max-h-[300px]">
-                    <pre className="font-mono text-xs leading-relaxed text-slate-600 dark:text-zinc-400 space-y-1">
-                      {serverLogs.map((log, i) => (
-                        <div key={i}>
-                          <span className="text-zinc-600 mr-2">[{new Date().toLocaleTimeString()}]</span>
-                          <span className={log.includes('✅') ? 'text-emerald-400' : log.includes('❌') || log.includes('⚠️') ? 'text-rose-400' : 'text-slate-300 dark:text-zinc-300'}>
-                            {log}
-                          </span>
-                        </div>
-                      ))}
-                    </pre>
+                  <button
+                    onClick={handleCopy}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 rounded-lg hover:bg-slate-200 dark:bg-zinc-800 hover:text-black dark:text-white transition-all text-xs font-medium focus:ring-2 focus:ring-slate-900 dark:ring-indigo-500/30"
+                  >
+                    {copied ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        Copy
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Prompt Info */}
+                <div className="px-6 py-3 border-b border-slate-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/20 text-sm">
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-zinc-500 flex items-center gap-1.5 text-xs uppercase tracking-wider font-semibold">
+                      <Code2 className="w-3.5 h-3.5" />
+                      Prompt
+                    </span>
+                    <span className="text-indigo-600 dark:text-indigo-300 font-medium italic line-clamp-2" title={queryUsedForOutput}>
+                      "{queryUsedForOutput}"
+                    </span>
                   </div>
                 </div>
-              )}
+
+                {/* Read-only Code Area */}
+                <div className="flex-1 p-6 overflow-auto bg-slate-900 dark:bg-[#0d0d0f] relative min-h-[200px]">
+                  <pre className="font-mono text-[13px] leading-relaxed text-slate-300 dark:text-zinc-300">
+                    <code className="text-cyan-300 dark:text-cyan-400">{currentSql}</code>
+                  </pre>
+                </div>
+
+                {/* Footer Warning */}
+                <div className="px-6 py-4 bg-white dark:bg-zinc-900/60 border-t border-slate-200 dark:border-zinc-800/60 flex items-start gap-3">
+                  <div className="p-1 rounded bg-amber-500/10 mt-0.5">
+                    <Database className="w-3.5 h-3.5 text-amber-500" />
+                  </div>
+                  <p className="text-xs text-amber-500/80 leading-relaxed">
+                    <span className="font-semibold text-amber-500">Read-Only View:</span> Review this generated query to ensure accuracy before running it.
+                  </p>
+                </div>
+                {/* Server Logs Panel */}
+                {serverLogs && serverLogs.length > 0 && (
+                  <div className="mt-6 flex flex-col rounded-2xl border border-slate-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950/80 backdrop-blur-md overflow-hidden shadow-xl shadow-slate-200/50 dark:shadow-2xl h-fit ring-1 ring-white/5">
+                    <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/40">
+                      <div className="flex items-center gap-3">
+                        <div className="p-1.5 bg-slate-200 dark:bg-zinc-800 rounded-md">
+                          <Terminal className="w-4 h-4 text-emerald-400" />
+                        </div>
+                        <h3 className="text-sm font-semibold text-slate-900 dark:text-zinc-100">Server Execution Logs</h3>
+                      </div>
+                    </div>
+                    <div className="p-4 overflow-auto bg-slate-900 dark:bg-[#0d0d0f] relative max-h-[300px]">
+                      <pre className="font-mono text-xs leading-relaxed text-slate-600 dark:text-zinc-400 space-y-1">
+                        {serverLogs.map((log, i) => (
+                          <div key={i}>
+                            <span className="text-zinc-600 mr-2">[{new Date().toLocaleTimeString()}]</span>
+                            <span className={log.includes('✅') ? 'text-emerald-400' : log.includes('❌') || log.includes('⚠️') ? 'text-rose-400' : 'text-slate-300 dark:text-zinc-300'}>
+                              {log}
+                            </span>
+                          </div>
+                        ))}
+                      </pre>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </motion.div>

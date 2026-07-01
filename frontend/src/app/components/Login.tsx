@@ -1,17 +1,41 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Database, Sparkles, Mail, Lock, ArrowRight } from 'lucide-react';
+import { Database, Mail, Lock, ArrowRight } from 'lucide-react';
+import { toast } from 'sonner';
 
 export function Login() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  const handleSubmit = (e: React.FormEvent, isAdmin: boolean = false) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Mock login success
-    localStorage.setItem('user-role', isAdmin ? 'Admin' : 'User');
-    navigate('/');
+
+    try {
+      // Call our real backend login endpoint
+      const res = await fetch('http://localhost:3000/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        toast.error(data.error || 'Login failed');
+        return;
+      }
+
+      // Save the JWT token and role from the backend response
+      localStorage.setItem('auth-token', data.token);
+      localStorage.setItem('user-role', data.role === 'admin' ? 'Admin' : 'User');
+
+      toast.success('Login successful!');
+      navigate('/');
+
+    } catch (err) {
+      toast.error('Could not connect to server');
+    }
   };
 
   return (
@@ -26,7 +50,7 @@ export function Login() {
         </div>
 
         <div className="bg-white dark:bg-zinc-900/50 backdrop-blur-xl border border-slate-200 dark:border-zinc-800/80 rounded-3xl p-8 shadow-xl shadow-slate-200/50 dark:shadow-2xl">
-          <form onSubmit={(e) => handleSubmit(e, false)} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-zinc-300 mb-2">Email Address</label>
               <div className="relative">
@@ -35,7 +59,7 @@ export function Login() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@company.com"
+                  placeholder="admin@example.com"
                   className="w-full bg-slate-50 dark:bg-zinc-950/50 border border-slate-200 dark:border-zinc-800 rounded-xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10 dark:focus:ring-indigo-500/50 focus:border-slate-900 dark:border-indigo-500 transition-all placeholder:text-zinc-600"
                   required
                 />
@@ -60,19 +84,12 @@ export function Login() {
               </div>
             </div>
 
-            <div className="flex gap-3 mt-6">
+            <div className="flex mt-6">
               <button
                 type="submit"
-                className="flex-1 bg-white dark:bg-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-700 text-slate-700 dark:text-white rounded-xl py-3 px-4 text-sm font-medium flex items-center justify-center gap-2 transition-all border border-slate-200 dark:border-zinc-700"
+                className="w-full bg-slate-900 dark:bg-indigo-500 hover:bg-slate-800 dark:hover:bg-indigo-600 text-white rounded-xl py-3 px-4 text-sm font-medium flex items-center justify-center gap-2 transition-all shadow-lg shadow-slate-900/20 dark:shadow-indigo-500/20"
               >
                 Sign In
-              </button>
-              <button
-                type="button"
-                onClick={(e) => handleSubmit(e, true)}
-                className="flex-1 bg-slate-900 dark:bg-indigo-500 hover:bg-slate-800 dark:hover:bg-indigo-600 text-white rounded-xl py-3 px-4 text-sm font-medium flex items-center justify-center gap-2 transition-all shadow-lg shadow-slate-900/20 dark:shadow-indigo-500/20"
-              >
-                Sign In as Admin
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
