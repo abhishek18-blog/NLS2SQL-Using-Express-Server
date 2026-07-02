@@ -68,6 +68,12 @@ export async function execute(sql: string, dbName?: string, addLog?: (msg: strin
         console.log(msgl);
         if (addLog) addLog(msgl);
 
+        // --- SECURITY GUARD: PREVENT DESTRUCTIVE QUERIES AND ALLOW READ ONLY QUERIES---
+        const safeSql = sql.trim().toUpperCase();
+        if (!safeSql.startsWith("SELECT") && !safeSql.startsWith("SHOW") && !safeSql.startsWith("DESCRIBE")) {
+            throw new Error("SECURITY BLOCK: For safety, only SELECT, SHOW, or DESCRIBE queries are allowed to be executed.");
+        }
+
         //connect to mysql
         const connection = await mysql.createConnection(getDbUrl(dbName));
 
